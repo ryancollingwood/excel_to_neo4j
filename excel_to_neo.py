@@ -37,13 +37,16 @@ C_USER_PASSWORD = "neo4j"
 C_SERVER_URL = "bolt://localhost:7687"
 C_DATA_START_ROW = 2
 
+
 def load_work_book(fileName):
     book = xw.Book(fileName)
     return book
 
+
 def get_work_book_sheet(workBook, sheetIndex):
     sheet = workBook.sheets[sheetIndex]
     return sheet
+
 
 # naive function to make a string into one cypher will be happy with
 def to_neo_label(value):
@@ -51,12 +54,14 @@ def to_neo_label(value):
     result = str(value).upper().strip().replace(" ", "_").replace("-", "_")
     return result
 
+
 # make a string into NeoPropertyName
 def to_neo_property_name(value):
     result = to_neo_label(value)
     result = result.replace("_", " ").title()
     result = result.replace(" ", "")
     return result
+
 
 # very ugly isNumeric check - excel stores all number as flaots
 def is_numeric(value):
@@ -70,7 +75,9 @@ def is_numeric(value):
 
     return False
 
- # naive is datetime test
+    # naive is datetime test
+
+
 def is_datetime(value):
     try:
         if (isinstance(value, datetime.datetime)):
@@ -84,6 +91,7 @@ def is_datetime(value):
 
     return False
 
+
 # return a set of columnHeaders
 # limitations will not cope well with merged cells
 # may need to perhaps return a dict that stores the column index
@@ -93,7 +101,7 @@ def extract_column_headers(rowData, columnCount):
     noneColCount = 0
 
     for column in range(1, columnCount):
-        #have we had more blanks than we wanted?
+        # have we had more blanks than we wanted?
         if (noneColCount > C_MAX_EMPTY):
             break
 
@@ -110,6 +118,7 @@ def extract_column_headers(rowData, columnCount):
 
     return result
 
+
 # return a dict of row values
 def read_row(rowData, columnHeaders):
     result = {}
@@ -118,7 +127,7 @@ def read_row(rowData, columnHeaders):
     noneColCount = 0
 
     for column in range(1, len(columnHeaders)):
-        #have we had more blanks than we wanted?
+        # have we had more blanks than we wanted?
         if (noneColCount > C_MAX_EMPTY):
             break
 
@@ -132,14 +141,15 @@ def read_row(rowData, columnHeaders):
         # TODO: transformations ala magic regex?
 
         # column - 1 as python array are 0 indexed
-        result[columnHeaders[column-1]] = value
+        result[columnHeaders[column - 1]] = value
 
     return result
+
 
 # merge a node
 def neo_merge_node(label, importLabel, value, session):
     cypher = neo_node_cypher("n", label, importLabel)
-    query = " ".join( ["MERGE", cypher] )
+    query = " ".join(["MERGE", cypher])
     # session.run(query, {"value": value})
 
     with session.begin_transaction() as tx:
@@ -148,17 +158,19 @@ def neo_merge_node(label, importLabel, value, session):
 
 
 # get a cypher string for matching/creating/merging a node
-def neo_node_cypher(selector, label, importLabel, value_temp = C_VALUE_TEMP):
+def neo_node_cypher(selector, label, importLabel, value_temp=C_VALUE_TEMP):
     template = "({selector} :{label} :{importLabel} {value_temp})"
-    template = template.format(selector = selector, label = label, importLabel = importLabel, value_temp = value_temp)
+    template = template.format(selector=selector, label=label, importLabel=importLabel, value_temp=value_temp)
 
     return template
+
 
 # get a cypher string for matching/creating/merging a relationship
-def neo_relationship_cypher(selector, label, value_temp = C_VALUE_TEMP):
+def neo_relationship_cypher(selector, label, value_temp=C_VALUE_TEMP):
     template = "[{selector} :`{label}` {value_temp}]"
-    template = template.format(selector = selector, label = label, value_temp = value_temp)
+    template = template.format(selector=selector, label=label, value_temp=value_temp)
     return template
+
 
 # take a python dict and convert it into a string for use in a parameterised cypher query
 def dict_to_cypher_params(value):
@@ -173,6 +185,7 @@ def dict_to_cypher_params(value):
         result = "".join(["{", result, "}"])
 
     return result
+
 
 # create relationships between cells in a row, which are now nodes
 def neo_create_relationships(rowData, forKey, relationshipProperties, session):
@@ -190,7 +203,7 @@ def neo_create_relationships(rowData, forKey, relationshipProperties, session):
         relCypher = neo_relationship_cypher("r", relName, relvalues)
 
         query = "MATCH {a}, {b} WITH a,b CREATE (a)-{relCypher}->(b)"
-        query = query.format(a = fromNode, b = toNode, relCypher = relCypher)
+        query = query.format(a=fromNode, b=toNode, relCypher=relCypher)
 
         # update query params to include values to match from (a) to (b) node
         queryParams = relationshipProperties.copy()
@@ -206,7 +219,6 @@ def neo_create_relationships(rowData, forKey, relationshipProperties, session):
 # then link the catagorical nodes with relationsiphs containing the numeric datatypes
 # found in the row
 def export_rows(columnHeaders, startDataRow, sheet, driver):
-
     # keep track of the number of empty rows
     # otherwise this will run till the max rowsize in an excel document
     noneRowCount = 0
@@ -214,8 +226,8 @@ def export_rows(columnHeaders, startDataRow, sheet, driver):
     # for each row - starting at 1 as excel is 1 based index
     for row in range(startDataRow, sheet.cells.rows.count):
 
-        #do we want to keep scanning rows?
-        #chceck firest cell of this row
+        # do we want to keep scanning rows?
+        # chceck firest cell of this row
         cell = sheet.range((row, 1))
         if (cell.value == None):
             noneRowCount = noneRowCount + 1
@@ -257,8 +269,9 @@ def export_rows(columnHeaders, startDataRow, sheet, driver):
         finally:
             # close session and return to thread pool
             session.close()
-			
-	return
+
+    return
+
 
 # from excel to neo4j
 # this is the entry point function
@@ -270,8 +283,8 @@ def export_sheet(fileName, sheetIndex):
 
     startDataRow = C_DATA_START_ROW
 
-    driver = GraphDatabase.driver(C_SERVER_URL, auth = basic_auth(C_USER_LOGIN, C_USER_PASSWORD))
+    driver = GraphDatabase.driver(C_SERVER_URL, auth=basic_auth(C_USER_LOGIN, C_USER_PASSWORD))
 
     export_rows(columnHeaders, startDataRow, sheet, driver)
-	
-	return
+
+    return
